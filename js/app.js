@@ -125,6 +125,14 @@ async function loadAccountState(session) {
 }
 
 async function initialiseAccount() {
+  if (!API_BASE_URL) {
+    const p = store.get().profile;
+    account = { email: p?.name ? `${p.name} (Local)` : 'Organisateur (Local)', local: true };
+    authReady = true;
+    lastPath = null;
+    onRouteChange();
+    return;
+  }
   try {
     const configResponse = await apiFetch('/api/config');
     if (!configResponse.ok) throw new Error('Impossible de charger la configuration du serveur.');

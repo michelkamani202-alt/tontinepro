@@ -274,7 +274,7 @@ export function homeView({ state, today, account }) {
       <h1 class="h1">Vos groupes</h1>
       ${body}
       <a class="btn btn-primary push" href="#/nouveau">${icon('plus', 22, 2.2)}${groups.length ? 'Créer un groupe' : 'Créer mon premier groupe'}</a>
-      <div class="row between account-row"><span class="meta">${account.email}</span><button type="button" class="link-btn" data-action="logout">Déconnexion</button></div>
+      <div class="row between account-row"><span class="meta">${account.email}</span><button type="button" class="link-btn" data-action="logout">${account.local ? 'Réinitialiser' : 'Déconnexion'}</button></div>
     </main>
     ${tabbar('groups', active && active.id)}`;
 }
