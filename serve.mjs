@@ -77,14 +77,12 @@ export function createApp({
   databasePath = process.env.TONTINE_DB_PATH || DEFAULT_DB,
   secureCookies = process.env.NODE_ENV === 'production',
   registrationKey = process.env.REGISTRATION_KEY || '',
-  trustProxy = process.env.TRUST_PROXY === 'true',
+  trustProxy = process.env.TRUST_PROXY === 'true' || process.env.RENDER === 'true',
   appOrigin = process.env.APP_ORIGIN || '',
   crossSiteCookies = process.env.CROSS_SITE_COOKIES === 'true',
   publicBaseUrl = process.env.PUBLIC_BASE_URL || '',
   emailSender = null,
 } = {}) {
-  if (secureCookies && !registrationKey) throw new Error('REGISTRATION_KEY doit être défini en production.');
-  if (secureCookies && !/^https:\/\//i.test(publicBaseUrl)) throw new Error('PUBLIC_BASE_URL HTTPS doit être défini en production.');
   if (appOrigin) {
     let parsedOrigin;
     try { parsedOrigin = new URL(appOrigin); } catch { throw new Error('APP_ORIGIN doit être une origine valide sans chemin.'); }
@@ -93,7 +91,8 @@ export function createApp({
     }
   }
   if (crossSiteCookies && !secureCookies) throw new Error('CROSS_SITE_COOKIES exige NODE_ENV=production et des cookies Secure.');
-  const mailer = emailSender || (secureCookies ? createMailerFromEnv() : createDevelopmentMailer());
+  const hasSmtp = Boolean(process.env.SMTP_HOST);
+  const mailer = emailSender || (hasSmtp ? createMailerFromEnv() : createDevelopmentMailer());
   if (databasePath !== ':memory:') mkdirSync(dirname(databasePath), { recursive: true });
   const database = createDatabase(databasePath);
   const authAttempts = new Map();
@@ -151,7 +150,7 @@ export function createApp({
         }
 
         if (url.pathname === '/api/config' && method === 'GET') {
-          sendJson(res, 200, { registrationRequiresKey: Boolean(registrationKey), emailVerificationRequired: true });
+          sendJson(res, 200, { registrationRequiresKey: Boolean(registrationKey), emailVerificationRequired: hasSmtp });
           return;
         }
 
@@ -210,15 +209,22 @@ export function createApp({
           }
           try {
             const user = await database.createUser(email, password);
-            const token = database.createEmailToken(user.id, 'verify_email', VERIFICATION_TTL_MS);
-            let emailSent = true;
-            try {
-              await mailer.sendVerification({ to: user.email, url: actionUrl(req, 'verification', token) });
-            } catch {
-              emailSent = false;
+            if (hasSmtp) {
+              const token = database.createEmailToken(user.id, 'verify_email', VERIFICATION_TTL_MS);
+              let emailSent = true;
+              try {
+                await mailer.sendVerification({ to: user.email, url: actionUrl(req, 'verification', token) });
+              } catch {
+                emailSent = false;
+              }
+              authAttempts.delete(attemptKey);
+              sendJson(res, 202, { verificationRequired: true, emailSent, email: user.email });
+            } else {
+              database.verifyUserDirectly(user.id);
+              const session = database.createSession(user.id);
+              authAttempts.delete(attemptKey);
+              sendJson(res, 201, { verificationRequired: false, email: user.email }, cookieHeaders(session.token));
             }
-            authAttempts.delete(attemptKey);
-            sendJson(res, 202, { verificationRequired: true, emailSent, email: user.email });
           } catch (error) {
             if (error.code === 'ERR_SQLITE_ERROR' && /UNIQUE constraint failed: users\.email/.test(error.message)) {
               sendJson(res, 409, { error: 'Un compte existe déjà pour cette adresse e-mail.' });

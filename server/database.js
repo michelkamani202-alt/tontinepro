@@ -52,6 +52,10 @@ export function createDatabase(path) {
       return true;
     },
     findUserByEmail: (email) => db.prepare('SELECT * FROM users WHERE email = ?').get(email),
+    verifyUserDirectly(userId) {
+      db.prepare('UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?) WHERE id = ?')
+        .run(new Date().toISOString(), userId);
+    },
     async createUser(email, password) {
       const salt = randomBytes(16);
       const hash = await scrypt(password, salt, PASSWORD_BYTES, { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
