@@ -91,8 +91,8 @@ export function createApp({
     }
   }
   if (crossSiteCookies && !secureCookies) throw new Error('CROSS_SITE_COOKIES exige NODE_ENV=production et des cookies Secure.');
-  const hasEmailSender = Boolean(emailSender || process.env.SMTP_HOST);
-  const mailer = emailSender || (process.env.SMTP_HOST ? createMailerFromEnv() : createDevelopmentMailer());
+  const hasSmtp = Boolean(process.env.SMTP_HOST);
+  const mailer = emailSender || (hasSmtp ? createMailerFromEnv() : createDevelopmentMailer());
   if (databasePath !== ':memory:') mkdirSync(dirname(databasePath), { recursive: true });
   const database = createDatabase(databasePath);
   const authAttempts = new Map();
@@ -150,7 +150,7 @@ export function createApp({
         }
 
         if (url.pathname === '/api/config' && method === 'GET') {
-          sendJson(res, 200, { registrationRequiresKey: Boolean(registrationKey), emailVerificationRequired: hasEmailSender });
+          sendJson(res, 200, { registrationRequiresKey: Boolean(registrationKey), emailVerificationRequired: hasSmtp });
           return;
         }
 
@@ -209,7 +209,7 @@ export function createApp({
           }
           try {
             const user = await database.createUser(email, password);
-            if (hasEmailSender) {
+            if (hasSmtp) {
               const token = database.createEmailToken(user.id, 'verify_email', VERIFICATION_TTL_MS);
               let emailSent = true;
               try {

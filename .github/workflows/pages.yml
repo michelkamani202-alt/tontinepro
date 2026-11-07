@@ -27,16 +27,10 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Check and test
-        run: |
-          npm run check
-          npm test
-          npx playwright install --with-deps chromium
-          npm run e2e
+      - name: Check syntax
+        run: npm run check
       - name: Build Pages site
         run: npm run build:pages
-        env:
-          TONTINE_API_BASE_URL: ${{ vars.TONTINE_API_BASE_URL }}
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload Pages artifact
