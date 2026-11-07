@@ -1,0 +1,9 @@
+node_modules/
+dist/
+data/
+.env*
+!.env.production.example
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+e2e-failure-*.png

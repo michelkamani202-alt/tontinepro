@@ -1,0 +1,83 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8080
+      TONTINE_DB_PATH: /data/tontinepro.sqlite
+      REGISTRATION_KEY: ${REGISTRATION_KEY:?Set REGISTRATION_KEY in .env.production}
+      TRUST_PROXY: "true"
+      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN in .env.production}
+      CROSS_SITE_COOKIES: "true"
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?Set PUBLIC_BASE_URL in .env.production}
+      SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST in .env.production}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:?Set SMTP_USER in .env.production}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?Set SMTP_PASSWORD in .env.production}
+      SMTP_FROM: ${SMTP_FROM:?Set SMTP_FROM in .env.production}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?Set PUBLIC_BASE_URL in .env.production}
+      SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST in .env.production}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:?Set SMTP_USER in .env.production}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?Set SMTP_PASSWORD in .env.production}
+      SMTP_FROM: ${SMTP_FROM:?Set SMTP_FROM in .env.production}
+    expose:
+      - "8080"
+    volumes:
+      - tontine_data:/data
+      - tontine_backups:/backups
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8080/api/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  backup:
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      TONTINE_DB_PATH: /data/tontinepro.sqlite
+      TONTINE_BACKUP_RETENTION_DAYS: 30
+    depends_on:
+      app:
+        condition: service_healthy
+    volumes:
+      - tontine_data:/data
+      - tontine_backups:/backups
+    command:
+      - sh
+      - -c
+      - while true; do node scripts/backup.mjs /backups || echo 'SQLite backup failed'; sleep 86400; done
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env.production}
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  tontine_data:
+  tontine_backups:
+  caddy_data:
+  caddy_config:

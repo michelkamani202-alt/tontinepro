@@ -1,0 +1,9 @@
+.git
+node_modules
+tests
+data
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.env*
+e2e-failure-*.png
