@@ -80,7 +80,7 @@ function persistWarning(ok) {
     toast("Impossible d'enregistrer sur cet appareil (stockage plein ou bloqué). Les données restent visibles tant que la page est ouverte.", 'warn');
     return;
   }
-  if (account) {
+  if (account && !account.local) {
     syncQueue = syncQueue.then(() => syncServerState()).catch((error) => {
       toast(error.message || 'La synchronisation serveur a échoué.', 'warn');
     });
@@ -135,7 +135,9 @@ async function initialiseAccount() {
     if (response.ok) await loadAccountState(await response.json());
     else if (response.status !== 401) throw new Error('Impossible de vérifier la session auprès du serveur.');
   } catch {
-    authError = 'Le serveur est inaccessible. Vérifiez votre connexion puis rechargez la page.';
+    // Mode autonome / local (PWA hors connexion ou GitHub Pages)
+    const p = store.get().profile;
+    account = { email: p?.name ? `${p.name} (Local)` : 'Organisateur (Local)', local: true };
   }
   authReady = true;
   lastPath = null;
@@ -334,6 +336,13 @@ const actions = {
     render({ fresh: true });
   },
   logout: async () => {
+    if (account?.local) {
+      if (window.confirm('Voulez-vous réinitialiser les données locales de cet appareil ? Pensez à exporter une sauvegarde chiffrée avant.')) {
+        store.replaceState(emptyLocalState());
+        go('#/');
+      }
+      return;
+    }
     try {
       await apiFetch('/api/logout', { method: 'POST' });
     } catch {

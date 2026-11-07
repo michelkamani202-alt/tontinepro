@@ -6,15 +6,16 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
 const apiBaseUrl = String(process.env.TONTINE_API_BASE_URL || '').trim().replace(/\/+$/, '');
 
-if (!apiBaseUrl) throw new Error('Définissez la variable TONTINE_API_BASE_URL avec l’URL HTTPS de votre API.');
-let apiUrl;
-try {
-  apiUrl = new URL(apiBaseUrl);
-} catch {
-  throw new Error('TONTINE_API_BASE_URL doit être une URL HTTPS valide.');
-}
-if (apiUrl.protocol !== 'https:' || apiUrl.username || apiUrl.password || apiUrl.search || apiUrl.hash) {
-  throw new Error('TONTINE_API_BASE_URL doit être HTTPS et ne contenir ni identifiants, ni paramètres, ni fragment.');
+if (apiBaseUrl) {
+  let apiUrl;
+  try {
+    apiUrl = new URL(apiBaseUrl);
+  } catch {
+    throw new Error('TONTINE_API_BASE_URL doit être une URL HTTPS valide.');
+  }
+  if (apiUrl.protocol !== 'https:' || apiUrl.username || apiUrl.password || apiUrl.search || apiUrl.hash) {
+    throw new Error('TONTINE_API_BASE_URL doit être HTTPS et ne contenir ni identifiants, ni paramètres, ni fragment.');
+  }
 }
 
 await rm(DIST, { recursive: true, force: true });
@@ -27,4 +28,4 @@ for (const directory of ['css', 'js', 'icons']) {
 }
 await writeFile(join(DIST, 'config.js'), `window.TONTINE_API_BASE_URL = ${JSON.stringify(apiBaseUrl)};\n`);
 await writeFile(join(DIST, '.nojekyll'), '');
-console.log(`Site GitHub Pages prêt dans dist/ avec API ${apiUrl.origin}`);
+console.log(`Site GitHub Pages prêt dans dist/ (${apiBaseUrl ? `API: ${apiBaseUrl}` : 'mode local autonome'})`);
